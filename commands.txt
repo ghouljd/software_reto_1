@@ -1,0 +1,26 @@
+CREATE TABLE rules (
+    rule_name TEXT,
+    id        INTEGER PRIMARY KEY AUTOINCREMENT
+);
+
+Leer los logs
+gcloud functions logs read \        
+    --gen2 \
+    --limit=10 \
+    --region=us-east1 \
+    rules-cf
+
+Verificar el estado de la funcion
+cloud functions describe rules_cf \
+  --region=us-east1
+
+Desplegar la funcion
+gcloud functions deploy rules_cf \  
+    --gen2 \       
+    --runtime=python39 \
+    --region=us-east1 \
+    --source=. \
+    --entry-point=hello_http \
+    --trigger-http \
+    --allow-unauthenticated \
+    --verbosity=debug
