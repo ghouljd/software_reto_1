@@ -1,54 +1,53 @@
-import functions_framework
 import sqlite3
 from google.cloud import storage
+import base64
+import json
 
-from markupsafe import escape
-@functions_framework.http
-def hello_http(request):
+def pubsub_subscriber(event, context):
     try:
-        """HTTP Cloud Function.
-        Args:
-            request (flask.Request): The request object.
-            <https://flask.palletsprojects.com/en/1.1.x/api/#incoming-request-data>
-        Returns:
-            The response text, or any set of values that can be turned into a
-            Response object using `make_response`
-            <https://flask.palletsprojects.com/en/1.1.x/api/#flask.make_response>.
-        """
-        project_id = "gifted-pulsar-414313"
-        # request_json = request.get_json(silent=True)
-        # request_args = request.args
+        if 'data' in event:
+            message_data = base64.b64decode(event['data']).decode('utf-8')
+            message = json.loads(message_data)
+            
+            # Ahora puedes acceder a cada campo del mensaje
+            placa = message.get('placa')
+            print(f"Timestamp: {message.get('timestamp')}")
+            print(f"Latitude: {message.get('latitude')}")
+            print(f"Longitude: {message.get('longitude')}")
+            print(f"Velocity: {message.get('velocity')}")
+            print(f"Direction: {message.get('direction')}")
+            print(f"Temperature: {message.get('temperature')}")
 
-        # Nombre del archivo de la base de datos SQLite en Cloud Storage
-        bucket_name = "experiment_bucket_software_gp3"
-        blob_name = "rules_engine.db"
+            project_id = "gifted-pulsar-414313"
 
-        # Descargar el archivo de la base de datos desde Cloud Storage
-        storage_client = storage.Client(project=project_id)
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(blob_name)
-        blob.download_to_filename("/tmp/database.db")
+            # Nombre del archivo de la base de datos SQLite en Cloud Storage
+            bucket_name = "experiment_bucket_software_gp3"
+            blob_name = "rules_engine.db"
 
-        # Conectar a la base de datos SQLite
-        conn = sqlite3.connect("/tmp/database.db")
-        cursor = conn.cursor()  # Definir el cursor aquí
+            # Descargar el archivo de la base de datos desde Cloud Storage
+            storage_client = storage.Client(project=project_id)
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(blob_name)
+            blob.download_to_filename("/tmp/database.db")
 
-        # Ejecutar una consulta SQL
-        cursor.execute("SELECT * FROM rules")
+            # Conectar a la base de datos SQLite
+            conn = sqlite3.connect("/tmp/database.db")
+            cursor = conn.cursor()  # Definir el cursor aquí
 
-        # Obtener resultados
-        results = cursor.fetchall()
+            # Ejecutar una consulta SQL
+            cursor.execute("SELECT * FROM rules")
 
-        # Cerrar la conexión a la base de datos
-        conn.close()
+            # Obtener resultados
+            results = cursor.fetchall()
 
-        # if request_json and "name" in request_json:
-        #     name = request_json["name"]
-        # elif request_args and "name" in request_args:
-        #     name = request_args["name"]
-        # else:
-        #     name = "World"
-        return f"Results: {str(results)}"
+            # Cerrar la conexión a la base de datos
+            conn.close()
+
+            print(f"Results: {str(results)}, Evento disparado por el vehiculo: {placa}")
+        else:
+            print("No data found in the Pub/Sub message.")
+        
+        print("Data not available")
     except:
-        return "An exception has ocurred"
+        print("An exception has ocurred")
         raise

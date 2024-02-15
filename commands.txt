@@ -6,7 +6,7 @@ CREATE TABLE rules (
 Leer los logs
 gcloud functions logs read \        
     --gen2 \
-    --limit=10 \
+    --limit=30 \
     --region=us-east1 \
     rules-cf
 
@@ -15,12 +15,16 @@ cloud functions describe rules_cf \
   --region=us-east1
 
 Desplegar la funcion
-gcloud functions deploy rules_cf \  
-    --gen2 \       
+
+gcloud functions deploy rules_cf \
     --runtime=python39 \
+    --trigger-topic=message_broker_reto1 \
+    --entry-point=pubsub_subscriber \
+    --project gifted-pulsar-414313 \
     --region=us-east1 \
-    --source=. \
-    --entry-point=hello_http \
-    --trigger-http \
-    --allow-unauthenticated \
-    --verbosity=debug
+    --memory=128MB \
+    --timeout=60s \
+    --allow-unauthenticated
+
+Probar la funcion
+gcloud pubsub topics publish message_broker_reto1 --message='{"placa": "ABC123", "timestamp": "2022-07-01T12:00:00Z", "latitude": 4.710989, "longitude": -74.072092, "velocity": 60, "direction": "Norte", "temperature": 25}' --project=gifted-pulsar-414313
