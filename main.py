@@ -3,51 +3,74 @@ from google.cloud import storage
 import base64
 import json
 
-def pubsub_subscriber(event, context):
+def pubsub_subscriber(event,context):
     try:
         if 'data' in event:
             message_data = base64.b64decode(event['data']).decode('utf-8')
             message = json.loads(message_data)
             
-            # Ahora puedes acceder a cada campo del mensaje
-            placa = message.get('placa')
-            print(f"Timestamp: {message.get('timestamp')}")
-            print(f"Latitude: {message.get('latitude')}")
-            print(f"Longitude: {message.get('longitude')}")
-            print(f"Velocity: {message.get('velocity')}")
-            print(f"Direction: {message.get('direction')}")
-            print(f"Temperature: {message.get('temperature')}")
+            # Log event data
+            plate = message.get('placa')
+            timestamp = message.get('timestamp')
+            latitude = message.get('latitude')
+            longitude = message.get('longitude')
+            velocity = message.get('velocity')
+            direction = message.get('direction')
+            temperature = message.get('temperature')
+            print(f"Event received for vehicle {plate}, timestamp={timestamp}, latitude={latitude}, longitude={longitude}, velocity={velocity}, direction={direction}, temperature={temperature}")
 
+            # Cloud config
             project_id = "gifted-pulsar-414313"
-
-            # Nombre del archivo de la base de datos SQLite en Cloud Storage
             bucket_name = "experiment_bucket_software_gp3"
-            blob_name = "rules_engine.db"
+            blob_name = "CCS.db"
 
-            # Descargar el archivo de la base de datos desde Cloud Storage
+            # Download DB file from the storage cloud
             storage_client = storage.Client(project=project_id)
             bucket = storage_client.bucket(bucket_name)
             blob = bucket.blob(blob_name)
             blob.download_to_filename("/tmp/database.db")
 
-            # Conectar a la base de datos SQLite
+            # Open a connection to the database
             conn = sqlite3.connect("/tmp/database.db")
-            cursor = conn.cursor()  # Definir el cursor aquí
+            cursor = conn.cursor()
 
-            # Ejecutar una consulta SQL
-            cursor.execute("SELECT * FROM rules")
-
-            # Obtener resultados
-            results = cursor.fetchall()
-
-            # Cerrar la conexión a la base de datos
+            # SQL query
+            cursor.execute(f"select evento, cond_criterio, cond_operador, cond_operando, accion from rules where placa = '{plate}'")
+            rules_set = cursor.fetchall()
+            print(rules_set)
+            # Close the database connection
             conn.close()
 
-            print(f"Results: {str(results)}, Evento disparado por el vehiculo: {placa}")
+            # Validating rules
+            if not rules_set: 
+                print(f"Rules not set for the plate: {plate}")
+            else:
+                def evaluate_max_velocity(velocity):
+                    velocity_rule = next((rule for rule in rules_set if rule[0] == "MAX_VELOCITY"), None)
+                    if int(velocity) >= int(velocity_rule[3]):
+                        print(f"Velocity alert for vehicle: {plate} - {velocity_rule[4]}")
+                    else:
+                        print(f"Velocity according to the rule for the vehicle {plate}")
+                    return
+                def evaluate_min_temperature(temperature):
+                    low_temperature_rule = next((rule for rule in rules_set if rule[0] == "TEMP_ANORMAL_DOWN"), None)
+                    if int(temperature) <= int(low_temperature_rule[3]):
+                        print(f"Low temperature alert for vehicle: {plate} - {low_temperature_rule[4]}")
+                    else:
+                        print(f"Low temperature according to the rule for the vehicle {plate}")
+                    return
+                def evaluate_max_temperature(temperature):
+                    high_temperature_rule = next((rule for rule in rules_set if rule[0] == "TEMP_ANORMAL_UP"), None)
+                    if int(temperature) >= int(high_temperature_rule[3]):
+                        print(f"High temperature alert for vehicle: {plate} - {high_temperature_rule[4]}")
+                    else:
+                        print(f"High temperature according to the rule for the vehicle {plate}")
+                    return
+                evaluate_max_velocity(velocity)
+                evaluate_min_temperature(temperature)
+                evaluate_max_temperature(temperature)
         else:
             print("No data found in the Pub/Sub message.")
-        
-        print("Data not available")
     except:
         print("An exception has ocurred")
         raise
